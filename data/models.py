@@ -7,7 +7,7 @@ class User(models.Model):
     """
     Модель для хранения информации о пользователях.
     """
-    telegram_id = models.BigIntegerField(unique=True)
+    telegram_id = models.BigIntegerField(unique=True, verbose_name="ID пользователя в Telegram")
     username = models.CharField(max_length=32, null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)
@@ -25,9 +25,9 @@ class Cake(models.Model):
     Модель для хранения информации о тортах.
     """
     LEVEL_CHOICES = [
-        (1, '1 уровень (+400р)'),
-        (2, '2 уровня (+750р)'),
-        (3, '3 уровня (+1100р)'),
+        (1, 'Первый уровень (+400р)'),
+        (2, 'Второй уровень (+750р)'),
+        (3, 'Третий уровень (+1100р)'),
     ]
     FORM_CHOICES = [
         ('circle', 'Круг (+400р)'),
@@ -35,7 +35,7 @@ class Cake(models.Model):
         ('rectangle', 'Прямоугольник (+1000р)'),
     ]
     TOPPING_CHOICES = [
-        ('none', 'Без топпинга'),
+        ('none', 'Без топпинга (+0)'),
         ('white', 'Белый соус (+200р)'),
         ('caramel', 'Карамельный сироп (+180р)'),
         ('maple', 'Кленовый сироп (+200р)'),
@@ -44,14 +44,14 @@ class Cake(models.Model):
         ('chocolate', 'Молочный шоколад (+200р)'),
     ]
     BERRIES_CHOICES = [
-        ('none', 'Без ягод'),
+        ('none', 'Без ягод (+0)'),
         ('blackberry', 'Ежевика (+400р)'),
         ('raspberry', 'Малина (+300р)'),
         ('blueberry', 'Голубика (+450р)'),
         ('strawberry', 'Клубника (+500р)'),
     ]
     DECOR_CHOICES = [
-        ('none', 'Без декора'),
+        ('none', 'Без декора (+0)'),
         ('pistachio', 'Фисташки (+300р)'),
         ('meringue', 'Безе (+400р)'),
         ('hazelnut', 'Фундук (+350р)'),
@@ -185,6 +185,14 @@ class Order(models.Model):
             super().save(*args, **kwargs)
         self.total_amount = self.calculate_total_amount()
         super().save(*args, **kwargs)
+
+
+class PromoCode(models.Model):
+    code = models.CharField(max_length=20, unique=True)
+    discount = models.DecimalField(max_digits=5, decimal_places=2)
+    valid_from = models.DateTimeField()
+    valid_to = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
 
 
 class Delivery(models.Model):
