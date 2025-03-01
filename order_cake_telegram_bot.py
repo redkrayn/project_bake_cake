@@ -1,6 +1,7 @@
 import os
 import re
 import django
+import requests
 django.setup()
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (
@@ -386,12 +387,28 @@ def main():
     updater.idle()
 
 
+def counting_link_click(token):
+    api_url = 'https://api.vk.com/method/utils.getLinkStats'
+    params = {
+        'access_token': token,
+        'key': 'cJ7n7C',
+        'interval': 'month',
+        'extended': 1,
+        'v': '5.199',
+    }
+
+    response = requests.get(api_url, params=params)
+    response.raise_for_status()
+    views = response.json()['response']['stats'][0]['views']
+    return views
+
+
 if __name__ == "__main__":
+    vk_token = os.environ['API_VK_TOKEN']
     main()
 
 # def create_order_form():
 #     print("Создаем форму заказа и передаем ответ заказчику")
-#
-#
-# def counting_link_click():
-#     print("подсчёт перехода по сслыке")
+
+print(counting_link_click(vk_token))
+
