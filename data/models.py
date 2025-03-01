@@ -15,9 +15,6 @@ class User(models.Model):
     username = models.CharField(max_length=32, null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)
-    privacy_agreement = models.FileField(
-        upload_to='privacy_agreements/', null=True, blank=True
-        )
     privacy_agreement_accepted = models.BooleanField(default=False)
 
     def __str__(self):
@@ -29,45 +26,39 @@ class Cake(models.Model):
     Модель для хранения информации о тортах.
     """
     LEVEL_CHOICES = [
-        (1, '1 уровень (+400р)'),
-        (2, '2 уровня (+750р)'),
-        (3, '3 уровня (+1100р)'),
         (1, 'Первый уровень (+400р)'),
         (2, 'Второй уровень (+750р)'),
         (3, 'Третий уровень (+1100р)'),
     ]
     FORM_CHOICES = [
-        ('circle', 'Круг (+400р)'),
-        ('square', 'Квадрат (+600р)'),
-        ('rectangle', 'Прямоугольник (+1000р)'),
+        ('круг', 'Круг (+400р)'),
+        ('квадрат', 'Квадрат (+600р)'),
+        ('прямоугольник', 'Прямоугольник (+1000р)'),
     ]
     TOPPING_CHOICES = [
-        ('none', 'Без топпинга'),
-        ('none', 'Без топпинга (+0)'),
-        ('white', 'Белый соус (+200р)'),
-        ('caramel', 'Карамельный сироп (+180р)'),
-        ('maple', 'Кленовый сироп (+200р)'),
-        ('strawberry', 'Клубничный сироп (+300р)'),
-        ('blueberry', 'Черничный сироп (+350р)'),
-        ('chocolate', 'Молочный шоколад (+200р)'),
+        ('без', 'Без топпинга (+0)'),
+        ('белый', 'Белый соус (+200р)'),
+        ('карамельный', 'Карамельный сироп (+180р)'),
+        ('кленовый', 'Кленовый сироп (+200р)'),
+        ('клубничный', 'Клубничный сироп (+300р)'),
+        ('черничный', 'Черничный сироп (+350р)'),
+        ('шоколадный', 'Молочный шоколад (+200р)'),
     ]
     BERRIES_CHOICES = [
-        ('none', 'Без ягод'),
-        ('none', 'Без ягод (+0)'),
-        ('blackberry', 'Ежевика (+400р)'),
-        ('raspberry', 'Малина (+300р)'),
-        ('blueberry', 'Голубика (+450р)'),
-        ('strawberry', 'Клубника (+500р)'),
+        ('без', 'Без ягод (+0)'),
+        ('ежевика', 'Ежевика (+400р)'),
+        ('малина', 'Малина (+300р)'),
+        ('голубика', 'Голубика (+450р)'),
+        ('клубника', 'Клубника (+500р)'),
     ]
     DECOR_CHOICES = [
-        ('none', 'Без декора'),
-        ('none', 'Без декора (+0)'),
-        ('pistachio', 'Фисташки (+300р)'),
-        ('meringue', 'Безе (+400р)'),
-        ('hazelnut', 'Фундук (+350р)'),
-        ('pecan', 'Пекан (+300р)'),
-        ('marshmallow', 'Маршмеллоу (+200р)'),
-        ('marzipan', 'Марципан (+280р)'),
+        ('без', 'Без декора (+0)'),
+        ('фисташки', 'Фисташки (+300р)'),
+        ('безе', 'Безе (+400р)'),
+        ('фундук', 'Фундук (+350р)'),
+        ('пекан', 'Пекан (+300р)'),
+        ('маршмеллоу', 'Маршмеллоу (+200р)'),
+        ('марципан', 'Марципан (+280р)'),
     ]
 
     user = models.ForeignKey('User', on_delete=models.CASCADE)
@@ -105,36 +96,36 @@ class Cake(models.Model):
         """
         price = {1: 400, 2: 750, 3: 1100}[self.levels]
 
-        price += {'circle': 400, 'square': 600, 'rectangle': 1000}[self.form]
+        price += {'круг': 400, 'квадрат': 600, 'прямоугольник': 1000}[self.form]
 
         topping_prices = {
-            'none': 0,
-            'white': 200,
-            'caramel': 180,
-            'maple': 200,
-            'strawberry': 300,
-            'blueberry': 350,
-            'chocolate': 200,
+            'без': 0,
+            'белый': 200,
+            'карамельный': 180,
+            'кленовый': 200,
+            'клубничный': 300,
+            'черничный': 350,
+            'шоколадный': 200,
         }
         price += topping_prices[self.topping]
 
         berries_prices = {
-            'none': 0,
-            'blackberry': 400,
-            'raspberry': 300,
-            'blueberry': 450,
-            'strawberry': 500,
+            'без': 0,
+            'ежевика': 400,
+            'малина': 300,
+            'голубика': 450,
+            'клубника': 500,
         }
         price += berries_prices[self.berries]
 
         decor_prices = {
-            'none': 0,
-            'pistachio': 300,
-            'meringue': 400,
-            'hazelnut': 350,
-            'pecan': 300,
-            'marshmallow': 200,
-            'marzipan': 280,
+            'без': 0,
+            'фисташки': 300,
+            'безе': 400,
+            'фундук': 350,
+            'пекан': 300,
+            'маршмеллоу': 200,
+            'марципан': 280,
         }
         price += decor_prices[self.decor]
 

@@ -1,7 +1,5 @@
 import os
 import re
-import django
-django.setup()
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (
     Updater,
