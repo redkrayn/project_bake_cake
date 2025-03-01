@@ -9,7 +9,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     CallbackContext,
     MessageHandler,
-    Filters
+    Filters,
+    ConversationHandler
 )
 from dotenv import load_dotenv
 from django.utils import timezone
@@ -21,7 +22,7 @@ TOPPING_CHOICES = Cake.TOPPING_CHOICES
 BERRIES_CHOICES = Cake.BERRIES_CHOICES
 DECOR_CHOICES = Cake.DECOR_CHOICES
 
-LEVEL, FORM, TOPPING, BERRIES, DECOR, TEXT, CONFIRM = range(7)
+LEVEL, FORM, TOPPING, BERRIES, DECOR, TEXT, CONFIRM, ADDRESS, DELIVERY_DATE = range(9)
 
 
 def start(update: Update, context: CallbackContext):
@@ -320,10 +321,11 @@ def calculate_total_price(update: Update, context: CallbackContext):
 
 
 def confirm_order(update: Update, context: CallbackContext):
+    """Подтверждение заказа и запрос адреса"""
     query = update.callback_query
     query.answer()
-    user_data = context.user_data
 
+    user_data = context.user_data
     cake = Cake(
         user=User.objects.get(telegram_id=update.effective_chat.id),
         levels=int(user_data['level']),
@@ -333,11 +335,14 @@ def confirm_order(update: Update, context: CallbackContext):
         decor=user_data['decor'],
         text=user_data.get('text', ''),
         total_price=user_data['total_price'],
-        delivery_date=timezone.now(),
         status='new'
     )
     cake.save()
-    query.edit_message_text(text="Спасибо за ваш заказ! Мы свяжемся с вами для уточнения деталей.")
+
+    context.user_data['cake_id'] = cake.id  # Сохраняем ID заказа
+
+    query.edit_message_text(text="Спасибо за ваш заказ! Теперь укажите адрес доставки:")
+    return ADDRESS #переходим к адресу
 
 
 def change_order(update: Update, context: CallbackContext):
@@ -357,31 +362,63 @@ def change_order(update: Update, context: CallbackContext):
     show_levels(update, context)
 
 
+def request_delivery_address(update: Update, context: CallbackContext):
+    """Обработка ввода адреса и запрос даты доставки"""
+    if update.message:
+        context.user_data['address'] = update.message.text
+        update.message.reply_text("Спасибо! Теперь укажите дату доставки (в формате ДД.ММ.ГГГГ):")
+        return DELIVERY_DATE
+
+
+def request_delivery_date(update: Update, context: CallbackContext):
+    """Обработка ввода даты доставки и финальное подтверждение"""
+    context.user_data['delivery_date'] = update.message.text
+
+    user_data = context.user_data
+    confirmation_text = (
+        f"Ваш заказ подтверждён!\n\n"
+        f"Адрес доставки: {user_data['address']}\n"
+        f"Дата доставки: {user_data['delivery_date']}\n\n"
+        f"Спасибо за заказ! Мы свяжемся с вами для уточнения деталей."
+    )
+
+    update.message.reply_text(text=confirmation_text)
+    return ConversationHandler.END  
+
+
 def main():
     load_dotenv()
     updater = Updater(token=os.environ["TELEGRAM_BOT_TOKEN"], use_context=True)
 
     dp = updater.dispatcher
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(select_finished_or_custom, pattern='agree|disagree'))
-    dp.add_handler(CallbackQueryHandler(select_cake, pattern='cake|custom_cake'))
-    dp.add_handler(CallbackQueryHandler(select_level, pattern='level_1|level_2|level_3'))
-    dp.add_handler(CallbackQueryHandler(select_form, pattern='form_circle|form_square|form_rectangle'))
-    dp.add_handler(CallbackQueryHandler(select_topping,
-                                        pattern='topping_none|topping_white|topping_caramel|topping_maple'
-                                                '|topping_strawberry|topping_blueberry|topping_chocolate'))
-    dp.add_handler(CallbackQueryHandler(select_berries,
-                                        pattern='berries_none|berries_blackberry|berries_raspberry|berries_blueberry'
-                                                '|berries_strawberry'))
-    dp.add_handler(CallbackQueryHandler(select_decor,
-                                        pattern='decor_none|decor_pistachio|decor_meringue|decor_hazelnut|decor_pecan'
-                                                '|decor_marshmallow|decor_marzipan'))
-    dp.add_handler(CallbackQueryHandler(skip_text, pattern='skip_text'))
-    dp.add_handler(CallbackQueryHandler(confirm_order, pattern='confirm_order'))
-    dp.add_handler(CallbackQueryHandler(change_order, pattern='change_order'))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, add_text))
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(confirm_order, pattern='confirm_order')],
+        states={
+            ADDRESS: [MessageHandler(Filters.text & ~Filters.command, request_delivery_address)],
+            DELIVERY_DATE: [MessageHandler(Filters.text & ~Filters.command, request_delivery_date)],
+        },
+        fallbacks=[],
+    )
+    dp.add_handler(conv_handler)
 
+    handlers = [
+        CommandHandler("start", start),
+        CallbackQueryHandler(select_finished_or_custom, pattern='agree|disagree'),
+        CallbackQueryHandler(select_cake, pattern='cake|custom_cake'),
+        CallbackQueryHandler(select_level, pattern='level_1|level_2|level_3'),
+        CallbackQueryHandler(select_form, pattern='form_circle|form_square|form_rectangle'),
+        CallbackQueryHandler(select_topping, pattern='topping_.*'),
+        CallbackQueryHandler(select_berries, pattern='berries_.*'),
+        CallbackQueryHandler(select_decor, pattern='decor_.*'),
+        CallbackQueryHandler(skip_text, pattern='skip_text'),
+        CallbackQueryHandler(confirm_order, pattern='confirm_order'),
+        CallbackQueryHandler(change_order, pattern='change_order'),
+        MessageHandler(Filters.text & ~Filters.command, add_text)
+    ]
+    for handler in handlers:
+        dp.add_handler(handler)
+    
     updater.start_polling()
     updater.idle()
 
