@@ -31,18 +31,8 @@ class CakeAdmin(admin.ModelAdmin):
         'status',
         'delivery_date',
         'is_urgent',
-        'display_photo'
+        'photo'
     )
-
-    def display_photo(self, obj):
-        if obj.photo:
-            return format_html(
-                '<img src="{}" width="50" height="50" />',
-                obj.photo.url
-                )
-        return "Нет фото"
-
-    display_photo.short_description = "Фото торта"
 
     list_filter = (
         'status',
@@ -76,7 +66,9 @@ class CakeAdmin(admin.ModelAdmin):
                 'berries',
                 'decor',
                 'text',
-                'comment'
+                'comment',
+                'photo'
+
             )
         }),
         ('Доставка', {
@@ -122,4 +114,5 @@ class DeliveryAdmin(admin.ModelAdmin):
                     'status')
     list_filter = ('status', 'delivery_date')
     search_fields = ('order__id', 'address')
+    readonly_fields = ('created_at', 'updated_at')
     readonly_fields = ('created_at', 'updated_at')
