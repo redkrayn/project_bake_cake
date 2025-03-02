@@ -1,8 +1,8 @@
 import os
 import re
 import django
-import requests
 django.setup()
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (
     Updater,
@@ -165,7 +165,6 @@ def show_levels(update: Update, context: CallbackContext):
 def select_level(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    print(query.data)
     level = int(query.data.split('_')[1])
     context.user_data['level'] = level
     query.edit_message_text(text="Выберите форму торта:")
@@ -183,7 +182,6 @@ def show_forms(update: Update, context: CallbackContext):
 def select_form(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    print(query.data)
     form = query.data.split('_')[1]
     context.user_data['form'] = form
     query.edit_message_text(text="Выберите топпинг для торта:")
@@ -356,9 +354,30 @@ def change_order(update: Update, context: CallbackContext):
     show_levels(update, context)
 
 
+def count_link_click(token):
+    api_url = 'https://api.vk.com/method/utils.getLinkStats'
+    params = {
+        'access_token': token,
+        'key': 'cJdwsX',
+        'interval': 'forever',
+        'extended': 1,
+        'v': '5.199',
+    }
+
+    response = requests.get(api_url, params=params)
+    response.raise_for_status()
+    views = response.json()['response']['stats'][0]['views']
+    return views
+
+
 def main():
     load_dotenv()
     updater = Updater(token=os.environ["TELEGRAM_BOT_TOKEN"], use_context=True)
+    vk_token = os.environ['API_VK_TOKEN']
+    try:
+        print(count_link_click(vk_token))
+    except:
+        print('Переходов по ссылке еще не было')
 
     dp = updater.dispatcher
 
@@ -379,28 +398,12 @@ def main():
     updater.idle()
 
 
-def counting_link_click(token):
-    api_url = 'https://api.vk.com/method/utils.getLinkStats'
-    params = {
-        'access_token': token,
-        'key': 'cJ7n7C',
-        'interval': 'month',
-        'extended': 1,
-        'v': '5.199',
-    }
-
-    response = requests.get(api_url, params=params)
-    response.raise_for_status()
-    views = response.json()['response']['stats'][0]['views']
-    return views
-
-
 if __name__ == "__main__":
-    vk_token = os.environ['API_VK_TOKEN']
+
     main()
 
 # def create_order_form():
 #     print("Создаем форму заказа и передаем ответ заказчику")
 
-print(counting_link_click(vk_token))
+
 
