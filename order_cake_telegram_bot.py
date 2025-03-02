@@ -363,13 +363,22 @@ def request_delivery_address(update: Update, context: CallbackContext):
     context.user_data['current_state'] = 'ADDRESS'
     if update.message:
         context.user_data['address'] = update.message.text
-        update.message.reply_text("Спасибо! Теперь укажите номер телефона:")
+        update.message.reply_text("Спасибо! Теперь укажите номер телефона в формате +7XXXXXXXXXX или 8XXXXXXXXXX:")
         return PHONE
 
 
 def request_phone_number(update: Update, context: CallbackContext):
     if update.message:
-        phone_number = update.message.text
+        phone_number = update.message.text.strip()
+        
+        # Проверка: только цифры, возможно с "+"
+        if not re.match(r"^\+?7\d{10}$|^8\d{10}$", phone_number):
+            update.message.reply_text("Ошибка! Введите корректный номер: +7XXXXXXXXXX или 8XXXXXXXXXX")
+            return PHONE
+
+        if phone_number.startswith("+7"):
+            phone_number = "7" + phone_number[2:]
+
         context.user_data['phone_number'] = phone_number
         update.message.reply_text("Спасибо! Теперь укажите время и дату доставки")
         return DELIVERY_DATE
