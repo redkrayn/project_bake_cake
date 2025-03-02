@@ -2,6 +2,7 @@ import os
 import re
 import django
 django.setup()
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (
     Updater,
@@ -16,13 +17,12 @@ from dotenv import load_dotenv
 from django.utils import timezone
 from data.models import User, Cake
 
+
 LEVEL_CHOICES = Cake.LEVEL_CHOICES
 FORM_CHOICES = Cake.FORM_CHOICES
 TOPPING_CHOICES = Cake.TOPPING_CHOICES
 BERRIES_CHOICES = Cake.BERRIES_CHOICES
 DECOR_CHOICES = Cake.DECOR_CHOICES
-
-LEVEL, FORM, TOPPING, BERRIES, DECOR, TEXT, CONFIRM, ADDRESS, DELIVERY_DATE = range(9)
 
 
 def start(update: Update, context: CallbackContext):
@@ -244,7 +244,6 @@ def select_decor(update: Update, context: CallbackContext):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
-    return TEXT
 
 
 def add_text(update: Update, context: CallbackContext):
@@ -260,7 +259,6 @@ def add_text(update: Update, context: CallbackContext):
         context.user_data['text'] = text
         context.user_data['text_price'] = text_price
         calculate_total_price(update, context)
-    return CONFIRM
 
 
 def skip_text(update: Update, context: CallbackContext):
@@ -269,7 +267,6 @@ def skip_text(update: Update, context: CallbackContext):
     context.user_data['text_price'] = 0
     context.user_data['text'] = 'Не нужен'
     calculate_total_price(update, context)
-    return CONFIRM
 
 
 def calculate_total_price(update: Update, context: CallbackContext):
@@ -339,10 +336,9 @@ def confirm_order(update: Update, context: CallbackContext):
     )
     cake.save()
 
-    context.user_data['cake_id'] = cake.id  # Сохраняем ID заказа
+    context.user_data['cake_id'] = cake.id  
 
     query.edit_message_text(text="Спасибо за ваш заказ! Теперь укажите адрес доставки:")
-    return ADDRESS #переходим к адресу
 
 
 def change_order(update: Update, context: CallbackContext):
@@ -367,7 +363,6 @@ def request_delivery_address(update: Update, context: CallbackContext):
     if update.message:
         context.user_data['address'] = update.message.text
         update.message.reply_text("Спасибо! Теперь укажите дату доставки (в формате ДД.ММ.ГГГГ):")
-        return DELIVERY_DATE
 
 
 def request_delivery_date(update: Update, context: CallbackContext):
@@ -386,9 +381,30 @@ def request_delivery_date(update: Update, context: CallbackContext):
     return ConversationHandler.END  
 
 
+def count_link_click(token):
+    api_url = 'https://api.vk.com/method/utils.getLinkStats'
+    params = {
+        'access_token': token,
+        'key': 'cJdwsX',
+        'interval': 'forever',
+        'extended': 1,
+        'v': '5.199',
+    }
+
+    response = requests.get(api_url, params=params)
+    response.raise_for_status()
+    views = response.json()['response']['stats'][0]['views']
+    return views
+
+
 def main():
     load_dotenv()
     updater = Updater(token=os.environ["TELEGRAM_BOT_TOKEN"], use_context=True)
+    vk_token = os.environ['API_VK_TOKEN']
+    try:
+        print(count_link_click(vk_token))
+    except:
+        print('Переходов по ссылке еще не было')
 
     dp = updater.dispatcher
 
@@ -408,9 +424,9 @@ def main():
         CallbackQueryHandler(select_cake, pattern='cake|custom_cake'),
         CallbackQueryHandler(select_level, pattern='level_1|level_2|level_3'),
         CallbackQueryHandler(select_form, pattern='form_circle|form_square|form_rectangle'),
-        CallbackQueryHandler(select_topping, pattern='topping_.*'),
-        CallbackQueryHandler(select_berries, pattern='berries_.*'),
-        CallbackQueryHandler(select_decor, pattern='decor_.*'),
+        CallbackQueryHandler(select_topping, pattern='topping_'),
+        CallbackQueryHandler(select_berries, pattern='berries_'),
+        CallbackQueryHandler(select_decor, pattern='decor_'),
         CallbackQueryHandler(skip_text, pattern='skip_text'),
         CallbackQueryHandler(confirm_order, pattern='confirm_order'),
         CallbackQueryHandler(change_order, pattern='change_order'),
@@ -422,13 +438,7 @@ def main():
     updater.start_polling()
     updater.idle()
 
-
+    
 if __name__ == "__main__":
     main()
-
-# def create_order_form():
-#     print("Создаем форму заказа и передаем ответ заказчику")
-#
-#
-# def counting_link_click():
-#     print("подсчёт перехода по сслыке")
+    
