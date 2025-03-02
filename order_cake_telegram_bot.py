@@ -10,8 +10,7 @@ from telegram.ext import (
     CallbackQueryHandler,
     CallbackContext,
     MessageHandler,
-    Filters,
-    ConversationHandler
+    Filters, ConversationHandler
 )
 from dotenv import load_dotenv
 from django.utils import timezone
@@ -48,11 +47,6 @@ def start(update: Update, context: CallbackContext):
             reply_markup=reply_markup
         )
     else:
-        update.message.reply_text(
-            text='Привет, мы сказочная пекарня и делаем торты!!!\n'
-                 'Вы можете заказать у нас готовые торты, либо сделать свой.\n'
-                 'Но перед началом вам нужно зарегистрироваться!'
-        )
         pdf_path = "agreed.pdf"
         with open(pdf_path, 'rb') as f:
             document = f.read()
@@ -78,8 +72,8 @@ def start(update: Update, context: CallbackContext):
 def select_finished_or_custom(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    chat_id = update.message.chat_id
-    user, created = User.objects.get_or_create(telegram_id=chat_id)
+    chat_id = query.message.chat_id
+    user = User.objects.get(telegram_id=chat_id)
 
     if query.data == 'agree':
         user.privacy_agreement_accepted = True
@@ -111,50 +105,11 @@ def select_cake(update: Update, context: CallbackContext):
 
 
 def order_cake(update: Update, context: CallbackContext):
-    image_folder = 'image_cake'
-    cakes = [
-        {
-            'filename': 'tort1.jpg',
-            'name': 'Zaher',
-            'ingredients': ["соль", "вода", "мука"],
-            'price': '500 руб.'
-        },
-        {
-            'filename': 'tort2.jpg',
-            'name': 'Napoleon',
-            'ingredients': ["сахар", "яйца", "масло"],
-            'price': '600 руб.'
-        },
-        {
-            'filename': 'tort3.jpg',
-            'name': 'Lie',
-            'ingredients': ["шоколад", "молоко", "орехи"],
-            'price': '700 руб.'
-        }
-    ]
-
-    for cake in cakes:
-        image_path = os.path.join(image_folder, cake['filename'])
-        if os.path.exists(image_path):
-            with open(image_path, 'rb') as f:
-                keyboard = [
-                    [
-                        InlineKeyboardButton("Купить", callback_data=f'buy_{cake['name']}')
-                    ]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                context.bot.send_photo(
-                    chat_id=update.effective_chat.id,
-                    photo=f,
-                    caption=f"*{cake['name']}*\n\nИнгредиенты: {', '.join(cake['ingredients'])}\nЦена: {cake['price']}",
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=reply_markup
-                )
+    print("фф")
 
 
 def buy_cake(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
+    print("фф")
 
 
 def show_levels(update: Update, context: CallbackContext):
@@ -296,6 +251,7 @@ def calculate_total_price(update: Update, context: CallbackContext):
                    )
 
     context.user_data['total_price'] = total_price
+
     confirmation_message = (
         f"Вы выбрали торт со следующими параметрами:\n"
         f"Уровни: {level}\n"
@@ -305,7 +261,7 @@ def calculate_total_price(update: Update, context: CallbackContext):
         f"Декор: {decor}\n"
         f"Дополнительный текст: {context.user_data.get('text', 'Не указан')}\n\n"
         f"Общая стоимость: {total_price} руб.\n\n"
-        f"Подтвердите заказ."
+        f"Пожалуйста, подтвердите заказ."
     )
     keyboard = [
         [
@@ -325,19 +281,6 @@ def confirm_order(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    user_data = context.user_data
-    cake = Cake(
-        user=User.objects.get(telegram_id=update.effective_chat.id),
-        levels=int(user_data['level']),
-        form=user_data['form'],
-        topping=user_data['topping'],
-        berries=user_data['berries'],
-        decor=user_data['decor'],
-        text=user_data.get('text', ''),
-        total_price=user_data['total_price'],
-        status='new'
-    )
-
     query.edit_message_text(text="Спасибо за ваш заказ! Теперь укажите адрес доставки:")
     return ADDRESS
 
@@ -354,9 +297,6 @@ def change_order(update: Update, context: CallbackContext):
     user_data.pop('decor', None)
     user_data.pop('text', None)
     user_data.pop('total_price', None)
-
-    query.edit_message_text(text="Хорошо, давайте изменим ваш заказ. Выберите уровень торта:")
-    show_levels(update, context)
 
 
 def request_delivery_address(update: Update, context: CallbackContext):
@@ -493,7 +433,7 @@ def main():
         print(count_link_click(vk_token))
     except:
         print('Переходов по ссылке еще не было')
-    updater.dispatcher.bot_data['admin_chat_id'] = admin_chat_id
+
     dp = updater.dispatcher
 
     conv_handler = ConversationHandler(
@@ -512,27 +452,31 @@ def main():
     )
     dp.add_handler(conv_handler)
 
-    handlers = [
-        CommandHandler("start", start),
-        CallbackQueryHandler(select_finished_or_custom, pattern='agree|disagree'),
-        CallbackQueryHandler(select_cake, pattern='cake|custom_cake'),
-        CallbackQueryHandler(select_level, pattern='level_'),
-        CallbackQueryHandler(select_form, pattern='form_'),
-        CallbackQueryHandler(select_topping, pattern='topping_'),
-        CallbackQueryHandler(select_berries, pattern='berries_'),
-        CallbackQueryHandler(select_decor, pattern='decor_'),
-        CallbackQueryHandler(skip_text, pattern='skip_text'),
-        CallbackQueryHandler(confirm_order, pattern='confirm_order'),
-        CallbackQueryHandler(change_order, pattern='change_order'),
-        MessageHandler(Filters.text & ~Filters.command, add_text)
-    ]
-    for handler in handlers:
-        dp.add_handler(handler)
-    
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(select_finished_or_custom, pattern='agree|disagree'))
+    dp.add_handler(CallbackQueryHandler(select_cake, pattern='cake|custom_cake'))
+    dp.add_handler(CallbackQueryHandler(buy_cake, pattern='^buy_'))
+    dp.add_handler(CallbackQueryHandler(select_level, pattern='level_'))
+    dp.add_handler(CallbackQueryHandler(select_form, pattern='form_'))
+    dp.add_handler(CallbackQueryHandler(select_topping, pattern='topping_'))
+    dp.add_handler(CallbackQueryHandler(select_berries, pattern='berries_'))
+    dp.add_handler(CallbackQueryHandler(select_decor, pattern='decor_'))
+    dp.add_handler(CallbackQueryHandler(skip_text, pattern='skip_text'))
+    dp.add_handler(CallbackQueryHandler(confirm_order, pattern='confirm_order'))
+    dp.add_handler(CallbackQueryHandler(change_order, pattern='change_order'))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, add_text))
+
+    updater.dispatcher.bot_data['admin_chat_id'] = admin_chat_id
+
     updater.start_polling()
     updater.idle()
 
-    
+
 if __name__ == "__main__":
     main()
-    
+
+# def create_order_form():
+#     print("Создаем форму заказа и передаем ответ заказчику")
+
+
+

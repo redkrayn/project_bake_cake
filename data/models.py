@@ -11,7 +11,7 @@ class User(models.Model):
     telegram_id = models.BigIntegerField(
         unique=True,
         verbose_name="ID пользователя в Telegram"
-        )
+    )
     username = models.CharField(max_length=32, null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)
@@ -169,7 +169,7 @@ class Order(models.Model):
         if self.pk:  # Проверяем, что объект уже сохранен в базе данных
             total = self.cakes.aggregate(
                 total=Sum('total_price')
-                )['total'] or 0
+            )['total'] or 0
             total = self.cakes.aggregate(total=Sum('total_price'))['total'] or 0
             return round(total, 2)
         return 0  # Если объект еще не сохранен, возвращаем 0
@@ -222,20 +222,20 @@ class Delivery(models.Model):
         choices=DELIVERY_STATUS_CHOICES,
         default='processing',
         verbose_name="Статус доставки"
-        )
+    )
     comment = models.TextField(
         blank=True,
         null=True,
         verbose_name="Комментарий к доставке"
-        )
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Дата создания"
-        )
+    )
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name="Дата обновления"
-        )
+    )
 
     def __str__(self):
         return f"Доставка для заказа #{self.order.id} ({self.status})"
