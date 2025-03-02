@@ -1,5 +1,7 @@
 import os
 import re
+import django
+django.setup()
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (
     Updater,
@@ -13,13 +15,12 @@ from dotenv import load_dotenv
 from django.utils import timezone
 from data.models import User, Cake
 
+
 LEVEL_CHOICES = Cake.LEVEL_CHOICES
 FORM_CHOICES = Cake.FORM_CHOICES
 TOPPING_CHOICES = Cake.TOPPING_CHOICES
 BERRIES_CHOICES = Cake.BERRIES_CHOICES
 DECOR_CHOICES = Cake.DECOR_CHOICES
-
-LEVEL, FORM, TOPPING, BERRIES, DECOR, TEXT, CONFIRM = range(7)
 
 
 def start(update: Update, context: CallbackContext):
@@ -163,6 +164,7 @@ def show_levels(update: Update, context: CallbackContext):
 def select_level(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
+    print(query.data)
     level = int(query.data.split('_')[1])
     context.user_data['level'] = level
     query.edit_message_text(text="Выберите форму торта:")
@@ -180,6 +182,7 @@ def show_forms(update: Update, context: CallbackContext):
 def select_form(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
+    print(query.data)
     form = query.data.split('_')[1]
     context.user_data['form'] = form
     query.edit_message_text(text="Выберите топпинг для торта:")
@@ -241,7 +244,6 @@ def select_decor(update: Update, context: CallbackContext):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
-    return TEXT
 
 
 def add_text(update: Update, context: CallbackContext):
@@ -257,7 +259,6 @@ def add_text(update: Update, context: CallbackContext):
         context.user_data['text'] = text
         context.user_data['text_price'] = text_price
         calculate_total_price(update, context)
-    return CONFIRM
 
 
 def skip_text(update: Update, context: CallbackContext):
@@ -266,7 +267,6 @@ def skip_text(update: Update, context: CallbackContext):
     context.user_data['text_price'] = 0
     context.user_data['text'] = 'Не нужен'
     calculate_total_price(update, context)
-    return CONFIRM
 
 
 def calculate_total_price(update: Update, context: CallbackContext):
@@ -364,17 +364,11 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CallbackQueryHandler(select_finished_or_custom, pattern='agree|disagree'))
     dp.add_handler(CallbackQueryHandler(select_cake, pattern='cake|custom_cake'))
-    dp.add_handler(CallbackQueryHandler(select_level, pattern='level_1|level_2|level_3'))
-    dp.add_handler(CallbackQueryHandler(select_form, pattern='form_circle|form_square|form_rectangle'))
-    dp.add_handler(CallbackQueryHandler(select_topping,
-                                        pattern='topping_none|topping_white|topping_caramel|topping_maple'
-                                                '|topping_strawberry|topping_blueberry|topping_chocolate'))
-    dp.add_handler(CallbackQueryHandler(select_berries,
-                                        pattern='berries_none|berries_blackberry|berries_raspberry|berries_blueberry'
-                                                '|berries_strawberry'))
-    dp.add_handler(CallbackQueryHandler(select_decor,
-                                        pattern='decor_none|decor_pistachio|decor_meringue|decor_hazelnut|decor_pecan'
-                                                '|decor_marshmallow|decor_marzipan'))
+    dp.add_handler(CallbackQueryHandler(select_level, pattern='level_'))
+    dp.add_handler(CallbackQueryHandler(select_form, pattern='form_'))
+    dp.add_handler(CallbackQueryHandler(select_topping, pattern='topping_'))
+    dp.add_handler(CallbackQueryHandler(select_berries, pattern='berries_'))
+    dp.add_handler(CallbackQueryHandler(select_decor, pattern='decor_'))
     dp.add_handler(CallbackQueryHandler(skip_text, pattern='skip_text'))
     dp.add_handler(CallbackQueryHandler(confirm_order, pattern='confirm_order'))
     dp.add_handler(CallbackQueryHandler(change_order, pattern='change_order'))
