@@ -16,6 +16,7 @@ from telegram.ext import (
 from dotenv import load_dotenv
 from django.utils import timezone
 from data.models import User, Cake
+from datetime import datetime
 
 
 LEVEL_CHOICES = Cake.LEVEL_CHOICES
@@ -380,15 +381,31 @@ def request_phone_number(update: Update, context: CallbackContext):
             phone_number = "7" + phone_number[2:]
 
         context.user_data['phone_number'] = phone_number
-        update.message.reply_text("Спасибо! Теперь укажите время и дату доставки")
+        update.message.reply_text("Спасибо! Теперь укажите время и дату доставки в формате ДД.ММ.ГГГГ ЧЧ:ММ:")
         return DELIVERY_DATE
 
 
 def request_delivery_date(update: Update, context: CallbackContext):
     if update.message:
-        context.user_data['delivery_date'] = update.message.text
-        update.message.reply_text("Спасибо! Теперь оставьте комментарий к заказу (необязательно):")
-        return COMMENT
+        try:
+            user_input = update.message.text.strip()
+            user_datetime = datetime.strptime(user_input, "%d.%m.%Y %H:%M")
+            now = datetime.now()
+
+            if user_datetime <= now:
+                update.message.reply_text(
+                    "Вы указали прошедшую дату или время. Введите дату и время в будущем в формате ДД.ММ.ГГГГ ЧЧ:ММ (например, 05.03.2025 14:30)."
+                )
+                return DELIVERY_DATE
+
+            context.user_data['delivery_date'] = user_input
+            update.message.reply_text("Спасибо! Теперь оставьте комментарий к заказу (необязательно):")
+            return COMMENT
+        except ValueError:
+            update.message.reply_text(
+                "Некорректный формат даты или времени. Введите в формате ДД.ММ.ГГГГ ЧЧ:ММ (например, 05.03.2025 14:30)."
+            )
+            return DELIVERY_DATE 
 
 
 def request_comment(update: Update, context: CallbackContext):
