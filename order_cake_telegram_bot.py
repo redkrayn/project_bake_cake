@@ -15,6 +15,7 @@ from telegram.ext import (
 from dotenv import load_dotenv
 from django.utils import timezone
 from data.models import User, Cake
+from datetime import datetime
 
 
 LEVEL_CHOICES = Cake.LEVEL_CHOICES
@@ -28,6 +29,11 @@ ADDRESS, PHONE, DELIVERY_DATE, COMMENT, CONFIRMATION = range(5)
 
 def start(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
+    admin_chat_id = os.getenv("ADMIN_CHAT_ID")
+
+    if admin_chat_id:
+        context.bot_data['admin_chat_id'] = int(admin_chat_id)
+
     user, created = User.objects.get_or_create(telegram_id=chat_id)
     update.message.reply_text(text='Привет, мы сказочная пекарня и делаем торты!!! \n'
                                    'Вы можете заказать у нас готовые торты, либо сделать свой. \n'
@@ -303,30 +309,67 @@ def request_delivery_address(update: Update, context: CallbackContext):
     context.user_data['current_state'] = 'ADDRESS'
     if update.message:
         context.user_data['address'] = update.message.text
-        update.message.reply_text("Спасибо! Теперь укажите номер телефона:")
+        update.message.reply_text("Спасибо! Теперь укажите номер телефона в формате +7XXXXXXXXXX или 8XXXXXXXXXX:")
         return PHONE
 
 
 def request_phone_number(update: Update, context: CallbackContext):
     if update.message:
-        phone_number = update.message.text
+        phone_number = update.message.text.strip()
+        
+        # Проверка: только цифры, возможно с "+"
+        if not re.match(r"^\+?7\d{10}$|^8\d{10}$", phone_number):
+            update.message.reply_text("Ошибка! Введите корректный номер: +7XXXXXXXXXX или 8XXXXXXXXXX")
+            return PHONE
+
+        if phone_number.startswith("+7"):
+            phone_number = "7" + phone_number[2:]
+
         context.user_data['phone_number'] = phone_number
-        update.message.reply_text("Спасибо! Теперь укажите время и дату доставки")
+        update.message.reply_text("Спасибо! Теперь укажите время и дату доставки в формате ДД.ММ.ГГГГ ЧЧ:ММ:")
         return DELIVERY_DATE
 
 
 def request_delivery_date(update: Update, context: CallbackContext):
     if update.message:
-        context.user_data['delivery_date'] = update.message.text
-        update.message.reply_text("Спасибо! Теперь оставьте комментарий к заказу (необязательно):")
-        return COMMENT
+        try:
+            user_input = update.message.text.strip()
+            user_datetime = datetime.strptime(user_input, "%d.%m.%Y %H:%M")
+            now = datetime.now()
+
+            if user_datetime <= now:
+                update.message.reply_text(
+                    "Вы указали прошедшую дату или время. Введите дату и время в будущем в формате ДД.ММ.ГГГГ ЧЧ:ММ (например, 05.03.2025 14:30)."
+                )
+                return DELIVERY_DATE
+
+            context.user_data['delivery_date'] = user_input
+            return request_comment(update, context)  # <-- Важно, вызываем функцию
+        except ValueError:
+            update.message.reply_text(
+                "Некорректный формат даты или времени. Введите в формате ДД.М.МГГГ ЧЧ:ММ (например, 05.03.2025 14:30)."
+            )
+            return DELIVERY_DATE 
 
 
 def request_comment(update: Update, context: CallbackContext):
-    if update.message:
-        context.user_data['comment'] = update.message.text
-        show_confirmation_menu(update, context)
-        return CONFIRMATION
+    keyboard = [[InlineKeyboardButton("Пропустить", callback_data='skip_comment')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_text(
+        "Оставьте комментарий к заказу (необязательно) или нажмите 'Пропустить':",
+        reply_markup=reply_markup
+    )
+    return COMMENT
+
+
+def skip_comment(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    
+    context.user_data['comment'] = "Не указан"
+    show_confirmation_menu(update, context)
+    return CONFIRMATION
 
 
 def show_confirmation_menu(update: Update, context: CallbackContext):
@@ -335,6 +378,7 @@ def show_confirmation_menu(update: Update, context: CallbackContext):
         [InlineKeyboardButton("Изменить", callback_data='change')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    
     confirmation_text = (
         f"Ваш заказ:\n\n"
         f"Адрес доставки: {context.user_data['address']}\n"
@@ -343,8 +387,11 @@ def show_confirmation_menu(update: Update, context: CallbackContext):
         f"Комментарий: {context.user_data.get('comment', 'Не указан')}\n\n"
         f"Выберите действие:"
     )
-    sent_message = update.message.reply_text(text=confirmation_text, reply_markup=reply_markup)
-    context.user_data['confirmation_message_id'] = sent_message.message_id
+    
+    message = update.message if update.message else update.callback_query.message
+    message.reply_text(text=confirmation_text, reply_markup=reply_markup)
+    
+    context.user_data['confirmation_message_id'] = message.message_id
 
 
 def confirm_order_user(update: Update, context: CallbackContext):
@@ -389,23 +436,32 @@ def send_order_to_admin(context: CallbackContext, order_details: dict, update: U
     user = update.effective_user
     username = user.username
     admin_chat_id = context.bot_data.get('admin_chat_id')
+
+    if not admin_chat_id:
+        print("Ошибка: admin_chat_id отсутствует в context.bot_data")
+        return
+
     admin_message = (
         f"Новый заказ от пользователя: @{username}!\n\n"
         "Заказанный торт:\n"
-        f"Уровни: {order_details['level']}\n"
-        f"Форма: {order_details['form']}\n"
-        f"Топпинг: {order_details['topping']}\n"
-        f"Ягоды: {order_details['berries']}\n"
-        f"Декор: {order_details['decor']}\n"
+        f"Уровни: {order_details.get('level')}\n"
+        f"Форма: {order_details.get('form')}\n"
+        f"Топпинг: {order_details.get('topping')}\n"
+        f"Ягоды: {order_details.get('berries')}\n"
+        f"Декор: {order_details.get('decor')}\n"
         f"Дополнительный текст: {order_details.get('text', 'Не указан')}\n\n"
         "Информация по доставке:\n"
-        f"Адрес доставки: {order_details['address']}\n"
-        f"Номер телефона: {order_details['phone_number']}\n"
-        f"Время доставки: {order_details['delivery_date']}\n"
+        f"Адрес доставки: {order_details.get('address')}\n"
+        f"Номер телефона: {order_details.get('phone_number')}\n"
+        f"Время доставки: {order_details.get('delivery_date')}\n"
         f"Комментарий: {order_details.get('comment', 'Не указан')}\n"
-        f"Общая стоимость: {order_details['total_price']} руб."
+        f"Общая стоимость: {order_details.get('total_price')} руб."
     )
-    context.bot.send_message(chat_id=admin_chat_id, text=admin_message)
+
+    try:
+        context.bot.send_message(chat_id=admin_chat_id, text=admin_message)
+    except Exception as e:
+        print(f"Ошибка при отправке сообщения администратору: {e}")
 
 
 def count_link_click(token):
@@ -442,7 +498,10 @@ def main():
             ADDRESS: [MessageHandler(Filters.text, request_delivery_address)],
             PHONE: [MessageHandler(Filters.text, request_phone_number)],
             DELIVERY_DATE: [MessageHandler(Filters.text, request_delivery_date)],
-            COMMENT: [MessageHandler(Filters.text, request_comment)],
+            COMMENT: [
+                MessageHandler(Filters.text, request_comment),
+                CallbackQueryHandler(skip_comment, pattern='skip_comment')  # Обработчик кнопки "Пропустить"
+            ],
             CONFIRMATION: [
                 CallbackQueryHandler(confirm_order_user, pattern='confirm'),
                 CallbackQueryHandler(change_order_user, pattern='change')
