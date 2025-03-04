@@ -649,12 +649,8 @@ def count_link_click(token):
     link = f'https://vk.cc/{key}'
     link_tracker, created = LinkTracker.objects.get_or_create(link=link)
 
-    if not created:
-        link_tracker.click_count += views
-        link_tracker.save()
-    else:
-        link_tracker.click_count = views
-        link_tracker.save()
+    link_tracker.click_count = views
+    link_tracker.save()
 
     return views
 
