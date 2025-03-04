@@ -1,6 +1,5 @@
 from django.contrib import admin
-from data.models import User, Cake, Order, Delivery
-from django.utils.html import format_html
+from data.models import User, Cake, Order, Delivery, ReadyCake, PromoCode, LinkTracker
 
 
 @admin.register(User)
@@ -11,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
         'phone',
         'privacy_agreement_accepted',
         'registration_date'
-        )
+    )
     search_fields = ('telegram_id', 'username', 'phone')
     list_filter = ('privacy_agreement_accepted', 'registration_date',)
     readonly_fields = ('registration_date',)
@@ -116,3 +115,34 @@ class DeliveryAdmin(admin.ModelAdmin):
     search_fields = ('order__id', 'address')
     readonly_fields = ('created_at', 'updated_at')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ReadyCake)
+class ReadyCakeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'price', 'is_available')
+    list_filter = ('is_available',)
+    search_fields = ('name', 'description', 'ingredients')
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('name', 'description', 'ingredients', 'price', 'image', 'is_available')
+        }),
+    )
+
+
+@admin.register(PromoCode)  # Регистрируем модель PromoCode с помощью декоратора
+class PromoCodeAdmin(admin.ModelAdmin):
+    list_display = ('code', 'discount', 'valid_from', 'valid_to', 'is_valid')  # Поля для отображения в списке
+    readonly_fields = ('is_valid',)  # Поля только для чтения
+
+    def is_valid(self, obj):
+        """Отображает статус действительности промокода."""
+        return obj.is_valid()
+
+    is_valid.boolean = True  # Отображать как иконку (опционально)
+    is_valid.short_description = 'Действителен'  # Кастомный заголовок колонки (опционально)
+
+
+@admin.register(LinkTracker)
+class LinkTrackerAdmin(admin.ModelAdmin):
+    list_display = ('link', 'click_count')
+    search_fields = ('link',)

@@ -145,6 +145,49 @@ class Cake(models.Model):
         super().save(*args, **kwargs)
 
 
+class ReadyCake(models.Model):
+    """
+    Модель для хранения информации о готовых тортах.
+    """
+    name = models.CharField(max_length=100, verbose_name="Название торта")
+    description = models.TextField(verbose_name="Описание торта")
+    ingredients = models.TextField(verbose_name="Состав торта", help_text="Перечислите ингредиенты через запятую")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+    image = models.ImageField(upload_to='ready_cakes/', verbose_name="Изображение торта")
+    is_available = models.BooleanField(default=True, verbose_name="Доступен для заказа")
+
+    def __str__(self):
+        return f"{self.name} ({self.price} руб.)"
+
+
+class PromoCode(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    discount = models.DecimalField(max_digits=5, decimal_places=2)
+    valid_from = models.DateTimeField(null=False, blank=False)
+    valid_to = models.DateTimeField(null=False, blank=False)
+
+    def is_valid(self):
+        """Проверяет, действителен ли промокод"""
+        now = timezone.now()
+        if self.valid_from is None or self.valid_to is None:
+            return False
+        return self.valid_from <= now <= self.valid_to
+
+    def __str__(self):
+        return self.code
+
+
+class LinkTracker(models.Model):
+    """
+    Модель для отслеживания переходов по ссылке.
+    """
+    link = models.CharField(max_length=255, unique=True, verbose_name="Ссылка")
+    click_count = models.PositiveIntegerField(default=0, verbose_name="Количество переходов")
+
+    def __str__(self):
+        return f"{self.link} (Переходов: {self.click_count})"
+
+
 class Order(models.Model):
     """
     Модель для хранения информации о заказах.
@@ -189,15 +232,6 @@ class Order(models.Model):
             super().save(*args, **kwargs)
         self.total_amount = self.calculate_total_amount()
         super().save(*args, **kwargs)
-
-
-class PromoCode(models.Model):
-    code = models.CharField(max_length=20, unique=True)
-    discount = models.DecimalField(max_digits=5, decimal_places=2)
-    valid_from = models.DateTimeField()
-    valid_to = models.DateTimeField()
-    is_active = models.BooleanField(default=True)
-
 
 class Delivery(models.Model):
     """
