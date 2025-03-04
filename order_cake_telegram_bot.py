@@ -1,5 +1,6 @@
 import os
 import re
+import glob
 import django
 import requests
 
@@ -52,9 +53,11 @@ def start(update: Update, context: CallbackContext):
         )
         context.user_data['ready_made_tort'] = sent_message.message_id
     else:
-        pdf_path = 'agreed.pdf'
-        with open(pdf_path, 'rb') as f:
-            document = f.read()
+        pdf_files = glob.glob('media/*.pdf')
+        if pdf_files:
+            pdf_path = pdf_files[0]
+            with open(pdf_path, 'rb') as f:
+                document = f.read()
 
         keyboard = [
             [
